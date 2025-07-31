@@ -29,10 +29,20 @@ class MainWindow(QMainWindow):
             'save_all': self.save_all
         })
 
+        self.format_label = QLabel("카메라 번호 : 0")
+        self.format_combo = QComboBox()
+        self.format_combo.addItems(["0", "1", "2", "3"]) 
+        self.format_combo.currentTextChanged.connect(self.update_camera_index)
+
+        index_layout = QHBoxLayout()
+        index_layout.addWidget(self.format_label)
+        index_layout.addWidget(self.format_combo)
+        
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.display)
         main_layout.addWidget(self.buttons)
-
+        main_layout.addLayout(index_layout)
+        
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
@@ -133,3 +143,7 @@ class MainWindow(QMainWindow):
             "저장 완료",
             f"✅ 전체 저장 완료:\n{base_path}_original.jpg\n{base_path}_original_detected.jpg\n{base_path}_upscaled.jpg\n{base_path}_upscaled_detected.jpg"
         )
+
+    def update_camera_index(self, camera_index):
+        self.format_label.setText(f"카메라 번호 : {camera_index}")
+        self.camera_index = camera_index
