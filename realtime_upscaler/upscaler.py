@@ -1,12 +1,24 @@
 import torch
-from realesrgan import RealESRGAN
+from realesrgan import RealESRGANer
+from basicsr.archs.rrdbnet_arch import RRDBNet
 from PIL import Image
+import numpy as np  
 
 class Upscaler:
     def __init__(self):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = RealESRGAN(device, scale=2)
-        self.model.load_weights('RealESRGAN_x2.pth')
+        self.model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2) # 2x scale
+        self.upscaler = RealESRGANer(
+            scale=2,
+            model_path='weights/RealESRGAN_x2plus.pth',
+            model=self.model,
+            tile=40,
+            tile_pad=10,
+            pre_pad=0,
+            half=True if device.type == 'cuda' else False
+        )
 
     def upscale(self, pil_img: Image.Image) -> Image.Image:
-        return self.model.predict(pil_img)
+        img_np = np.array(pil_img)
+        sr_img, _ = self.upscaler.enhance(img_np)
+        return Image.fromarray(sr_img)

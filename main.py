@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QApplication
 import sys
-from realtime_upscaler.ui import MainWindow
+from image_upscaler.ui import MainWindow
 
 def main():
     app = QApplication(sys.argv)

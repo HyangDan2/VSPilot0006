@@ -1,93 +1,164 @@
 from PySide6.QtWidgets import (
-    QMainWindow, QLabel, QPushButton, QHBoxLayout, QVBoxLayout,
-    QWidget, QFileDialog, QMessageBox
+    QMainWindow, QLabel, QWidget, QHBoxLayout,
+    QVBoxLayout, QPushButton, QFileDialog, QMessageBox
 )
-from PySide6.QtGui import QPixmap, QImage
-from PySide6.QtCore import Qt
-from PIL import Image
-from udir_image_upscaler.upscaler import Upscaler
-import numpy as np
-import os
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import Qt, QTimer
 
+from realtime_upscaler.upscaler import Upscaler
+from image_upscaler.image_processor import ImageProcessor
+from image_upscaler.image_saver import ImageSaver
+
+import cv2
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("UDIR 이미지 업스케일러 - Apache 2.0")
-        self.setGeometry(200, 200, 1200, 600)
+        self.setWindowTitle("UDIR 업스케일러 - Apache 2.0")
+        self.setGeometry(100, 100, 1200, 700)
 
-        # QLabel 2개 (좌: 원본, 우: 업스케일 결과)
-        self.label_orig = QLabel("원본 이미지", alignment=Qt.AlignCenter)
-        self.label_upscaled = QLabel("업스케일 이미지", alignment=Qt.AlignCenter)
-        for label in [self.label_orig, self.label_upscaled]:
-            label.setFixedSize(540, 400)
+        self.upscaler = Upscaler()
+        self.processor = ImageProcessor(self.upscaler)
+        self.saver = ImageSaver()
+        self.last_input_frame = None
+        self.last_upscaled_frame = None
 
-        # 버튼
-        self.btn_open = QPushButton("📂 이미지 열기")
-        self.btn_upscale = QPushButton("🚀 업스케일")
-        self.btn_save = QPushButton("💾 저장")
-        self.btn_upscale.setEnabled(False)
-        self.btn_save.setEnabled(False)
+        self.image_labels = [QLabel("원본 이미지"), QLabel("업스케일 이미지")]
+        for label in self.image_labels:
+            label.setFixedSize(560, 480)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # 레이아웃 구성
+        btn_camera = QPushButton("\ud83d\udcf7 \uce74\uba54\ub77c \uce90\ud150")
+        btn_camera.clicked.connect(self.capture_from_camera)
+
+        btn_load = QPushButton("\ud83d\uddbc \uc774\ubbf8\uc9c0 \ubd88\ub7ec\uc624\uae30")
+        btn_load.clicked.connect(self.load_from_file)
+
+        btn_save_original = QPushButton("\ud83d\udcc2 \uc6d0\ubcf8 \uc800\uc7a5")
+        btn_save_original.clicked.connect(self.save_original)
+
+        btn_save_upscaled = QPushButton("\ud83d\udcc2 \uc5c5\uc2a4\ud398\uc77c \uc800\uc7a5")
+        btn_save_upscaled.clicked.connect(self.save_upscaled)
+
+        btn_save_all = QPushButton("\ud83d\udcc1 \uc804\uccb4 \uc800\uc7a5")
+        btn_save_all.clicked.connect(self.save_all)
+
         image_layout = QHBoxLayout()
-        image_layout.addWidget(self.label_orig)
-        image_layout.addWidget(self.label_upscaled)
+        for label in self.image_labels:
+            image_layout.addWidget(label)
 
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.btn_open)
-        button_layout.addWidget(self.btn_upscale)
-        button_layout.addWidget(self.btn_save)
+        btn_layout = QHBoxLayout()
+        btn_layout.addWidget(btn_camera)
+        btn_layout.addWidget(btn_load)
+        btn_layout.addWidget(btn_save_original)
+        btn_layout.addWidget(btn_save_upscaled)
+        btn_layout.addWidget(btn_save_all)
 
         main_layout = QVBoxLayout()
         main_layout.addLayout(image_layout)
-        main_layout.addLayout(button_layout)
+        main_layout.addLayout(btn_layout)
 
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
 
-        # 상태 변수
-        self.image_path = None
-        self.result_image = None
-        self.upscaler = Upscaler()
+    def capture_from_camera(self):
+        for label in self.image_labels:
+            label.setText("\ud83d\udcf8 \uccad\uc0ac \uc911...\n\uc7a0\uac78\ub9b4\uae4c \uae30\ub2e4\ub824\uc8fc세요!")
+            label.setStyleSheet("font-size: 20px; color: gray;")
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.repaint()
 
-        # 이벤트 연결
-        self.btn_open.clicked.connect(self.load_image)
-        self.btn_upscale.clicked.connect(self.run_upscale)
-        self.btn_save.clicked.connect(self.save_image)
+        QTimer.singleShot(800, self._open_and_capture_camera)
 
-    def load_image(self):
-        file, _ = QFileDialog.getOpenFileName(self, "이미지 선택", "", "Images (*.png *.jpg *.jpeg)")
-        if file:
-            self.image_path = file
-            pixmap = QPixmap(file)
-            self.label_orig.setPixmap(pixmap.scaled(self.label_orig.size(), Qt.KeepAspectRatio))
-            self.label_upscaled.clear()
-            self.btn_upscale.setEnabled(True)
-            self.btn_save.setEnabled(False)
-
-    def run_upscale(self):
-        if not self.image_path:
+    def _open_and_capture_camera(self):
+        cap = cv2.VideoCapture(1) # 0 for Iphone Camera, 1 for Mac Camera
+        if not cap.isOpened():
+            QMessageBox.critical(self, "\uc5d0\ub7ec", "\uce74\uba54\ub77c\ub97c \uc5f4 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4!")
             return
-        try:
-            img = Image.open(self.image_path).convert("RGB")
-            self.result_image = self.upscaler.upscale(img)
 
-            # 결과를 QPixmap으로 변환해서 표시
-            img_np = np.array(self.result_image)
-            h, w, ch = img_np.shape
-            qimg = QImage(img_np.data, w, h, ch * w, QImage.Format_RGB888)
-            self.label_upscaled.setPixmap(QPixmap.fromImage(qimg).scaled(
-                self.label_upscaled.size(), Qt.KeepAspectRatio))
-            self.btn_save.setEnabled(True)
-        except Exception as e:
-            QMessageBox.critical(self, "오류", f"업스케일 실패: {e}")
+        for _ in range(10):
+            cap.read()
+            cv2.waitKey(60)
 
-    def save_image(self):
-        if self.result_image is None:
+        ret, frame = cap.read()
+        cap.release()
+
+        if not ret or frame is None:
+            QMessageBox.warning(self, "\uacbd\uace0", "\ud504\ub808\uc784 \uce90\ud150 \uc2e4\ud328")
             return
-        file, _ = QFileDialog.getSaveFileName(self, "저장 위치", "", "PNG Files (*.png);;JPEG Files (*.jpg *.jpeg)")
-        if file:
-            self.result_image.save(file)
-            QMessageBox.information(self, "성공", "이미지가 저장되었습니다.")
+
+        self.process_image(frame)
+
+    def load_from_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "\uc774\ubbf8\uc9c0 \ud30c\uc77c \uc120\ud0dd", "", "Images (*.png *.jpg *.jpeg *.bmp)")
+        if file_path:
+            frame = cv2.imread(file_path)
+            if frame is None:
+                QMessageBox.warning(self, "\uacbd\uace0", "\uc774\ubbf8\uc9c0\ub97c \ubd88\ub7ec\uc62c \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.")
+                return
+            self.process_image(frame)
+
+    def process_image(self, frame):
+        self.last_input_frame = frame.copy()
+        detected = self.processor.detect_faces(frame.copy())
+        self.image_labels[0].setPixmap(self.convert_to_pixmap(detected))
+
+        upscaled = self.processor.upscale(frame)
+        self.last_upscaled_frame = upscaled.copy()
+        upscaled_detected = self.processor.detect_faces(upscaled)
+        self.image_labels[1].setPixmap(self.convert_to_pixmap(upscaled_detected))
+
+    def save_original(self):
+        if self.last_input_frame is None:
+            QMessageBox.information(self, "\uc800\uc7a5 \ubd88\uac00", "\uc6d0\ubcf8 \uc774\ubbf8\uc9c0\uac00 \uc5c6\uc2b5\ub2c8\ub2e4!")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(self, "\uc6d0\ubcf8 \uc800\uc7a5", "", "JPEG Image (*.jpg)")
+        if not path:
+            return
+        if not path.lower().endswith(".jpg"):
+            path += ".jpg"
+
+        self.saver.save_detected(path, self.last_input_frame)
+        QMessageBox.information(self, "\uc800\uc7a5 \uc644\ub8cc", f"\u2705 \uc6d0\ubcf8 \uc800\uc7a5 \uc644\ub8cc: {path}")
+
+    def save_upscaled(self):
+        if self.last_upscaled_frame is None:
+            QMessageBox.information(self, "\uc800\uc7a5 \ubd88\uac00", "\uc5c5\uc2a4\ud398\uc77c \uc774\ubbf8\uc9c0\uac00 \uc5c6\uc2b5\ub2c8\ub2e4!")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(self, "\uc5c5\uc2a4\ud398\uc77c \uc800\uc7a5", "", "JPEG Image (*.jpg)")
+        if not path:
+            return
+        if not path.lower().endswith(".jpg"):
+            path += ".jpg"
+
+        self.saver.save_detected(path, self.last_upscaled_frame)
+        QMessageBox.information(self, "\uc800\uc7a5 \uc644\ub8cc", f"\u2705 \uc5c5\uc2a4\ud398\uc77c \uc800\uc7a5 \uc644\ub8cc: {path}")
+
+    def save_all(self):
+        if self.last_input_frame is None or self.last_upscaled_frame is None:
+            QMessageBox.information(self, "\uc800\uc7a5 \ubd88\uac00", "\uc800\uc7a5\ud560 \uc774\ubbf8\uc9c0\uac00 \uc5c6\uc2b5\ub2c8\ub2e4!")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(self, "\uc804\uccb4 \uc800\uc7a5", "", "JPEG Image (*.jpg)")
+        if not path:
+            return
+        if not path.lower().endswith(".jpg"):
+            path += ".jpg"
+
+        base_path = path.rsplit(".", 1)[0]
+        self.saver.save_all(base_path, self.last_input_frame, self.last_upscaled_frame)
+
+        QMessageBox.information(
+            self,
+            "\uc800\uc7a5 \uc644\ub8cc",
+            f"\u2705 \uc804\uccb4 \uc800\uc7a5 \uc644\ub8cc:\n{base_path}_original.jpg\n{base_path}_original_detected.jpg\n{base_path}_upscaled.jpg\n{base_path}_upscaled_detected.jpg"
+        )
+
+    def convert_to_pixmap(self, img):
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+        qimg = QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
+        return QPixmap.fromImage(qimg).scaled(560, 480, Qt.AspectRatioMode.KeepAspectRatio)

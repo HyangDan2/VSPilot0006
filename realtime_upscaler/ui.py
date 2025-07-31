@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
     def convert_to_qimage(self, img):
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
-        return QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
+        return QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
 
     def closeEvent(self, event):
         from realtime_upscaler.camera_worker import release_camera
