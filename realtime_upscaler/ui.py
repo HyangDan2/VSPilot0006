@@ -11,7 +11,7 @@ from PIL import Image
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("UDIR 업스케일러 - Apache 2.0")
+        self.setWindowTitle("Realtime Upscaler - Apache 2.0")
         self.setGeometry(100, 100, 1200, 600)
 
         self.image_labels = [QLabel(), QLabel()]
