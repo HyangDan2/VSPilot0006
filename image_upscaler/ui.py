@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(800, self._open_and_capture_camera)
 
     def _open_and_capture_camera(self):
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(1)
         if not cap.isOpened():
             QMessageBox.critical(self, "에러", "카메라를 열 수 없습니다!")
             return
