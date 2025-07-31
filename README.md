@@ -1,4 +1,4 @@
-# UDIR Real-Time AI Upscaler
+# Camera Real-Time AI Upscaler
 
 This project demonstrates real-time IR camera upscaling using Real-ESRGAN and face detection with PySide6.
 
@@ -12,3 +12,4 @@ This project demonstrates real-time IR camera upscaling using Real-ESRGAN and fa
 ```bash
 pip install -r requirements.txt
 python -m realtime_upscaler.main
+```
