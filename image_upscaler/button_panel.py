@@ -5,22 +5,29 @@ class ButtonPanel(QWidget):
         super().__init__()
         self.callbacks = callbacks
 
-        btn_camera = QPushButton("📷 카메라 캡처")
-        btn_load = QPushButton("🖼 이미지 불러오기")
-        btn_upscale = QPushButton("🚀 업스케일 실행")
-        btn_save_original = QPushButton("💾 원본 저장")
-        btn_save_upscaled = QPushButton("💾 업스케일 저장")
-        btn_save_all = QPushButton("📁 전체 저장")
+        self.buttons = {
+            "camera": QPushButton("카메라 캡처"),
+            "load": QPushButton("파일 열기"),
+            "upscale": QPushButton("업스케일"),
+            "save_original": QPushButton("원본 저장"),
+            "save_upscaled": QPushButton("결과 저장"),
+            "save_all": QPushButton("전체 저장"),
+        }
 
-        btn_camera.clicked.connect(callbacks.get('camera'))
-        btn_load.clicked.connect(callbacks.get('load'))
-        btn_upscale.clicked.connect(callbacks.get('upscale'))
-        btn_save_original.clicked.connect(callbacks.get('save_original'))
-        btn_save_upscaled.clicked.connect(callbacks.get('save_upscaled'))
-        btn_save_all.clicked.connect(callbacks.get('save_all'))
+        for name, button in self.buttons.items():
+            button.clicked.connect(callbacks.get(name))
 
         layout = QHBoxLayout()
-        for btn in [btn_camera, btn_load, btn_upscale, btn_save_original, btn_save_upscaled, btn_save_all]:
+        for btn in self.buttons.values():
             layout.addWidget(btn)
 
         self.setLayout(layout)
+
+    def set_processing(self, is_processing):
+        for name, button in self.buttons.items():
+            button.setEnabled(not is_processing)
+
+    def set_save_enabled(self, has_original, has_upscaled):
+        self.buttons["save_original"].setEnabled(has_original)
+        self.buttons["save_upscaled"].setEnabled(has_upscaled)
+        self.buttons["save_all"].setEnabled(has_original and has_upscaled)
