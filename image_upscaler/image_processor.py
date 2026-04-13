@@ -4,7 +4,9 @@ class ImageProcessor:
     def __init__(self, upscaler):
         self.upscaler = upscaler
 
-    def detect_faces(self, frame):
+    def detect_faces(self, frame, enabled=True):
+        if not enabled:
+            return frame.copy()
         return detect_faces(frame.copy())
 
     def upscale(self, frame):
