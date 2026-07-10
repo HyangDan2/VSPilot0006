@@ -1,6 +1,6 @@
-opencv-python
 torch
 realesrgan
 numpy
 pillow
 PySide6
+PyYAML

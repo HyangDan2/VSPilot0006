@@ -1,0 +1,12 @@
+model_path: weights/RealESRGAN_x2plus.pth
+last_open_dir: ''
+last_save_dir: ''
+input_format: ''
+output_format: png
+scale: 2
+tile: 0
+tile_pad: 10
+pre_pad: 0
+use_half: auto
+show_log: true
+chain_upscale: false
