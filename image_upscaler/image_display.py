@@ -60,11 +60,14 @@ class ImageDisplay(QWidget):
         if image.mode == "RGBA":
             qimage_format = QImage.Format.Format_RGBA8888
             converted = image
+            bytes_per_pixel = 4
         else:
             qimage_format = QImage.Format.Format_RGB888
             converted = image.convert("RGB")
+            bytes_per_pixel = 3
 
         data = converted.tobytes("raw", converted.mode)
-        qimage = QImage(data, converted.width, converted.height, qimage_format)
+        bytes_per_line = converted.width * bytes_per_pixel
+        qimage = QImage(data, converted.width, converted.height, bytes_per_line, qimage_format)
         qimage.ndarray = data
         return QPixmap.fromImage(qimage)
